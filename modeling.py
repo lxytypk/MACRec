@@ -1,4 +1,3 @@
-
 from transformers.models.t5.configuration_t5 import T5Config
 from transformers.models.t5.modeling_t5 import (
     T5Stack, T5Block, T5LayerNorm, T5LayerSelfAttention, T5LayerFF, T5LayerCrossAttention,
@@ -19,6 +18,10 @@ from transformers.modeling_utils import PreTrainedModel, find_pruneable_heads_an
 from transformers.utils import logging
 from transformers import BeamScorer, BeamSearchScorer
 
+'''
+在Encoder部分的 Input-label 之间的语义对齐
+'''
+
 def sigmoid(x):
     return 1 / (1 + torch.exp(-x))
 
@@ -28,6 +31,9 @@ class baseT5(T5ForConditionalGeneration):
     def __init__(self, config: T5Config):
         super().__init__(config)
 
+'''
+既做文本生成，又做图文对齐
+'''
 class CrossModalContrastive(T5ForConditionalGeneration):
 
     def __init__(self, config: T5Config):
@@ -53,15 +59,14 @@ class CrossModalContrastive(T5ForConditionalGeneration):
         
         logits = torch.matmul(model_a_norm, model_b_norm.transpose(-2, -1)) / self.temperature
         
-
+        ################# 构造正样本标签 #################
         labels = torch.arange(batch_size, device=logits.device)
         
-
         loss_contrastive = F.cross_entropy(logits, labels)
         
         return loss_contrastive
 
-
+    ############### 语言模型生成损失 + 跨模态对比学习损失 ###############
     def total_loss(self, lm_logits, labels, decoder_input_ids, is_contrastive_task=False, 
                    text_embeddings=None, image_embeddings=None):
 

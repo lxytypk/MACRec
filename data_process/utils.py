@@ -12,7 +12,6 @@ import collections
 # import openai
 
 
-
 def get_res_batch(model_name, prompt_list, max_tokens, api_info):
 
     while True:
@@ -79,6 +78,7 @@ def set_device(gpu_id):
         return torch.device(
             'cuda:' + str(gpu_id) if torch.cuda.is_available() else 'cpu')
 
+'''加载预训练语言模型'''
 def load_plm(model_path='bert-base-uncased', kwargs=None):
 
     tokenizer = AutoTokenizer.from_pretrained(model_path, **kwargs)
@@ -94,6 +94,7 @@ def load_json(file):
     return data
 
 def clean_text(raw_text):
+    ### 如果是列表 -> 用空格拼接成一个字符串
     if isinstance(raw_text, list):
         new_raw_text=[]
         for raw in raw_text:
@@ -102,6 +103,7 @@ def clean_text(raw_text):
             raw = re.sub(r'["\n\r]*', '', raw)
             new_raw_text.append(raw.strip())
         cleaned_text = ' '.join(new_raw_text)
+    ### 字典 -> 转为字符串并去掉两端的括号
     else:
         if isinstance(raw_text, dict):
             cleaned_text = str(raw_text)[1:-1].strip()
@@ -110,6 +112,7 @@ def clean_text(raw_text):
         cleaned_text = html.unescape(cleaned_text)
         cleaned_text = re.sub(r'</?\w+[^>]*>', '', cleaned_text)
         cleaned_text = re.sub(r'["\n\r]*', '', cleaned_text)
+    ### 无论字符串末尾原本有几个句号/没有句号，全部修改为只有一个句号结尾
     index = -1
     while -index < len(cleaned_text) and cleaned_text[index] == '.':
         index -= 1
@@ -118,6 +121,7 @@ def clean_text(raw_text):
         cleaned_text = cleaned_text + '.'
     else:
         cleaned_text = cleaned_text[:index] + '.'
+    ### 长度过滤
     if len(cleaned_text) >= 2000:
         cleaned_text = ''
     return cleaned_text
@@ -127,11 +131,14 @@ def load_pickle(filename):
         return pickle.load(f)
 
 
+'''将交互数据按User分组, 确保每个用户的history按时间先后排列'''
 def make_inters_in_order(inters):
+    ### 利用字典user2inters将数据归类，键是user，值是该用户产生过的所有交互列表
     user2inters, new_inters = collections.defaultdict(list), list()
     for inter in inters:
         user, item, rating, timestamp = inter
         user2inters[user].append((user, item, rating, timestamp))
+    ### 取出该用户的所有交互，并根据 d[3] timestamp 进行升序排序
     for user in user2inters:
         user_inters = user2inters[user]
         user_inters.sort(key=lambda d: d[3])
@@ -139,6 +146,7 @@ def make_inters_in_order(inters):
             new_inters.append(inter)
     return new_inters
 
+'''将字典数据保存为JSON文件'''
 def write_json_file(dic, file):
     print('Writing json file: ',file)
     with open(file, 'w') as fp:
@@ -148,19 +156,31 @@ def write_remap_index(unit2index, file):
     print('Writing remap file: ',file)
     with open(file, 'w') as fp:
         for unit in unit2index:
+            ### 将原始名称和新索引用 \t 隔开
             fp.write(unit + '\t' + str(unit2index[unit]) + '\n')
 
 
+'''
+Input: 特定Item标题, User评论
+Output: 推断User个人喜好 + Item具体特征
+'''
 intention_prompt = "After purchasing a {dataset_full_name} item named \"{item_title}\", the user left a comment expressing his opinion and personal preferences. The user's comment is as follows: \n\"{review}\" " \
                     "\nAs we all know, user comments often contain information about both their personal preferences and the characteristics of the item they interacted with. From this comment, you can infer both the user's personal preferences and the characteristics of the item. " \
                     "Please describe your inferred user preferences and item characteristics in the first person and in the following format:\n\nMy preferences: []\nThe item's characteristics: []\n\n" \
                     "Note that your inference of the personalized preferences should not include any information about the title of the item."
 
-
+'''
+Input: User买过的多个Item标题
+Output: 总结User整体偏好
+'''
 preference_prompt_1 = "Suppose the user has bought a variety of {dataset_full_name} items, they are: \n{item_titles}. \nAs we all know, these historically purchased items serve as a reflection of the user's personalized preferences. " \
                         "Please analyze the user's personalized preferences based on the items he has bought and provide a brief third-person summary of the user's preferences, highlighting the key factors that influence his choice of items. Avoid listing specific items and do not list multiple examples. " \
                         "Your analysis should be brief and in the third person."
 
+'''
+Input: 按时间顺序排列的购买Item清单
+Output: 偏好拆分为长期 + 短期
+'''
 preference_prompt_2 = "Given a chronological list of {dataset_full_name} items that a user has purchased, we can analyze his long-term and short-term preferences. Long-term preferences are inherent characteristics of the user, which are reflected in all the items he has interacted with over time. Short-term preferences are the user's recent preferences, which are reflected in some of the items he has bought more recently. " \
                         "To determine the user's long-term preferences, please analyze the contents of all the items he has bought. Look for common features that appear frequently across the user's shopping records. To determine the user's short-term preferences, focus on the items he has bought most recently. Identify any new or different features that have emerged in the user's shopping records. " \
                         "Here is a chronological list of items that the user has bought: \n{item_titles}. \nPlease provide separate analyses for the user's long-term and short-term preferences. Your answer should be concise and general, without listing specific items. Your answer should be in the third person and in the following format:\n\nLong-term preferences: []\nShort-term preferences: []\n\n"

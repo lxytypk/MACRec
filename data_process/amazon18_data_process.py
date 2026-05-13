@@ -11,6 +11,9 @@ from tqdm import tqdm
 import numpy as np
 from utils import check_path, clean_text, amazon18_dataset2fullname, write_json_file, write_remap_index, load_json
 
+'''
+根据 图片的存在情况 来过滤并加载评分数据
+'''
 def load_ratings(file, images_info):
     users, items, inters = set(), set(), set()
     with open(file, 'r') as fp:
@@ -51,7 +54,9 @@ def load_meta_items(file):
             # print(items[item])
     return items
 
-
+'''
+加载review评论数据【只保留 image + review】
+'''
 def load_review_data(args, user2id, item2id):
 
     dataset_full_name = amazon18_dataset2fullname[args.dataset]
@@ -86,7 +91,10 @@ def load_review_data(args, user2id, item2id):
 
     return reviews
 
-
+'''
+获取每个user的评分记录数量
+inters:[user, item, rating, time]
+'''
 def get_user2count(inters):
     user2count = collections.defaultdict(int)
     for unit in inters:
@@ -100,7 +108,10 @@ def get_item2count(inters):
         item2count[unit[1]] += 1
     return item2count
 
-
+'''
+生成候选集合
+当次数 count >= threshold 时，才把这个 ID 加入到 cans（候选集合）中
+'''
 def generate_candidates(unit2count, threshold):
     cans = set()
     for unit, count in unit2count.items():
@@ -108,7 +119,9 @@ def generate_candidates(unit2count, threshold):
             cans.add(unit)
     return cans, len(unit2count) - len(cans)
 
-
+'''
+每个用户至少有 K 条记录，每个商品至少有 K 条记录
+'''
 def filter_inters(inters, can_items=None,
                   user_k_core_threshold=0, item_k_core_threshold=0):
     new_inters = []
@@ -150,7 +163,10 @@ def filter_inters(inters, can_items=None,
                     % (idx, len(inters), len(user2count), len(item2count)))
     return inters
 
-
+'''
+interactions 按时间先后排列
+每个User对同一个Item只有一条记录
+'''
 def make_inters_in_order(inters):
     user2inters, new_inters = collections.defaultdict(list), list()
     for inter in tqdm(inters):
@@ -167,7 +183,12 @@ def make_inters_in_order(inters):
             new_inters.append(inter)
     return new_inters
 
-
+'''
+1) 第一次排序与去重
+2) 过滤掉没有meta数据的item
+3) 进行k-core过滤
+4) 第二次排序与去重
+'''
 def preprocess_rating(args):
     dataset_full_name = amazon18_dataset2fullname[args.dataset]
 
@@ -208,6 +229,7 @@ def convert_inters2dict(inters):
     user2index, item2index = dict(), dict()
     for inter in inters:
         user, item, rating, timestamp = inter
+        #################### user2index 和 item2index 方便之后将模型的推荐结果还原回原始的亚马逊 ASIN 编号 ####################
         if user not in user2index:
             user2index[user] = len(user2index)
         if item not in item2index:
@@ -215,6 +237,9 @@ def convert_inters2dict(inters):
         user2items[user2index[user]].append(item2index[item])
     return user2items, user2index, item2index
 
+'''
+留一法 划分训练集、验证集、测试集
+'''
 def generate_data(args, rating_inters):
     print('Split dataset: ')
     print(' Dataset: ', args.dataset)
@@ -232,6 +257,10 @@ def generate_data(args, rating_inters):
                len(valid_inters[u_index]) + len(test_inters[u_index])
     return user2items, train_inters, valid_inters, test_inters, user2index, item2index
 
+'''
+将划分好的数据集转换为 RecBole 格式 [.inter]用于序列推荐
+
+'''
 def convert_to_atomic_files(args, train_data, valid_data, test_data):
     print('Convert dataset: ')
     print(' Dataset: ', args.dataset)
@@ -267,8 +296,8 @@ def parse_args():
     parser.add_argument('--dataset', type=str, default='Instruments', help='Instruments / Arts / Games')
     parser.add_argument('--user_k', type=int, default=5, help='user k-core filtering')
     parser.add_argument('--item_k', type=int, default=5, help='item k-core filtering')
-    parser.add_argument('--input_path', type=str, default='/datasets/datasets/amazon18')
-    parser.add_argument('--output_path', type=str, default='/datasets/datasets/LC-Rec_image')
+    parser.add_argument('--input_path', type=str, default='/home/liangxinyu/MACRec/data/amazon18')
+    parser.add_argument('--output_path', type=str, default='/home/liangxinyu/MACRec/data')
     return parser.parse_args()
 
 

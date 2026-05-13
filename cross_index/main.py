@@ -21,13 +21,13 @@ def parse_args():
     parser.add_argument('--eval_step', type=int, default=1, help='eval step')
     parser.add_argument('--learner', type=str, default="AdamW", help='optimizer')
     parser.add_argument("--data_path", type=str,
-                        default="/datasets/datasets/LC-Rec_all/Instruments/Instruments.emb-llama-td.npy",
+                        default="/home/liangxinyu/MACRec/data/Instruments/Instruments.emb-llama-td.npy",
                         help="Input data path.")
     parser.add_argument("--text_data_path", type=str,
-                        default="/datasets/datasets/LC-Rec_all/Instruments/Instruments.emb-llama-td.npy",
+                        default="/home/liangxinyu/MACRec/data/Instruments/Instruments.emb-llama-td.npy",
                         help="Input text data path.")
     parser.add_argument("--image_data_path", type=str,
-                        default="/datasets/datasets/LC-Rec_all/Instruments/Instruments.emb-llama-td.npy",
+                        default="/home/liangxinyu/MACRec/data/Instruments/Instruments.emb-ViT-L-14.npy",
                         help="Input image data path.")
 
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='l2 regularization weight')
@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument('--quant_loss_weight', type=float, default=1.0, help='vq quantion loss weight')
     parser.add_argument('--layers', type=int, nargs='+', default=[2048,1024,512,256,128,64], help='hidden sizes of every layer')
 
-    parser.add_argument("--ckpt_dir", type=str, default="./log", help="output directory for model")
+    parser.add_argument("--ckpt_dir", type=str, default="/home/liangxinyu/MACRec/cross_index/log", help="output directory for model")
 
     parser.add_argument("--text_class_info", type=str, default="", help="text class info")
     parser.add_argument("--image_class_info", type=str, default="", help="image class info")
@@ -58,7 +58,10 @@ def parse_args():
 
     return parser.parse_args()
 
-
+'''
+class -> items
+item -> 同类别所有items
+'''
 def process_class_info(class_info):
     
     with open(class_info, "r") as f:

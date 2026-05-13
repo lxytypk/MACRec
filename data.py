@@ -44,8 +44,10 @@ class BaseDataset(Dataset):
         with open(os.path.join(self.data_path, self.dataset + ".inter.json"), 'r') as f:
             self.inters = json.load(f)
             
+        #文本语义 ID
         with open(os.path.join(self.data_path, self.dataset + self.index_file), 'r') as f:
             self.indices = json.load(f)
+        #视觉语义 ID
         with open(os.path.join(self.data_path, self.dataset + self.image_index_file), 'r') as f:
             image_indices = json.load(f)
             
@@ -119,6 +121,10 @@ class BaseDataset(Dataset):
 
         return self.all_items
 
+    '''
+    受限生成：
+    在model生成推荐结果，限制从预定义的语义token中选择，防止生成不存在的“幻觉ID”
+    '''
     def get_prefix_allowed_tokens_fn(self, tokenizer):
 
 
@@ -177,7 +183,7 @@ class BaseDataset(Dataset):
         raise NotImplementedError
 
 
-
+'''根据用户过去看过的Item序列，预测下一个Item'''
 class SeqRecDataset(BaseDataset):
         
     def __init__(self, args, task='seqrec', mode="train",
@@ -227,7 +233,6 @@ class SeqRecDataset(BaseDataset):
     def _process_train_data(self):
 
         inter_data = []
-        
         if self.train_data_mode == 0: ## origin, for encoder-decoder
             for uid  in self.remapped_inters:
                 items = self.remapped_inters[uid][:-2]
@@ -323,10 +328,11 @@ class SeqRecDataset(BaseDataset):
         return instruction, response
 
     def __getitem__(self, index):
-        
+        ### Model 0/1: 传统的滑动窗口截取
         if self.mode != 'train' or self.train_data_mode <= 1:
             d = self.inter_data[index]
             
+        ### Model 2/3/Other: 随机采样用户历史的不同片段来增加训练样本的多样性
         elif self.train_data_mode == 2: 
             d = dict()
             items = self.inter_data[index]
@@ -383,6 +389,7 @@ class SeqRecDataset(BaseDataset):
         return dict(input_ids=input, labels=output, label=index, task_flag=0)
 
     
+'''跨维度对齐（静态）'''
 class ItemImageDataset(BaseDataset):
 
     def __init__(self, args, task="item2image", prompt_sample_num=1, sample_num=-1):
@@ -414,9 +421,10 @@ class ItemImageDataset(BaseDataset):
         for item_id, item_token in self.indices.items():
             item_index = "".join(self.indices[item_id])
             image_index = "".join(self.image_indices[item_id])
-            
+            ### 输入文本语义 ID，让模型生成对应的视觉语义 ID
             if self.task == 'item2image':
                 data_pair.append([item_index, image_index])
+            ### 输入视觉语义 ID，生成对应的文本语义 ID
             else:
                 data_pair.append([image_index, item_index])
 

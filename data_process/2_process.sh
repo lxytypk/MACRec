@@ -3,5 +3,5 @@
 
 
 python amazon18_data_process.py \
-    --input_path /userhome/dataset/amazon18 \
-    --output_path /userhome/dataset/MQL4GRec
+    --input_path /home/liangxinyu/MACRec/data/amazon18 \
+    --output_path /home/liangxinyu/MACRec/data

@@ -20,6 +20,10 @@ def load_data(args):
 
     return item2feature
 
+'''
+[商品整数ID, [属性文本1, 属性文本2, ...]]
+['title', 'description']
+'''
 def generate_text(item2feature, features):
     item_text_list = []
 
@@ -71,6 +75,7 @@ def generate_item_embedding(args, item_text_list, tokenizer, model, word_drop_ra
             for sentences in field_texts:
                 sentences = list(sentences)
                 # print(sentences)
+                #################### 随机丢弃文本中的某些单词 ####################
                 if word_drop_ratio > 0:
                     print(f'Word drop with p={word_drop_ratio}')
                     new_sentences = []
@@ -84,6 +89,8 @@ def generate_item_embedding(args, item_text_list, tokenizer, model, word_drop_ra
                         new_sent = ' '.join(new_sent)
                         new_sentences.append(new_sent)
                     sentences = new_sentences
+
+                ###################### tokenizer 将文本转化为张量，并输入到 model ######################
                 encoded_sentences = tokenizer(sentences, max_length=args.max_sent_len,
                                               truncation=True, return_tensors='pt',padding="longest").to(args.device)
                 outputs = model(input_ids=encoded_sentences.input_ids,
@@ -92,8 +99,10 @@ def generate_item_embedding(args, item_text_list, tokenizer, model, word_drop_ra
                 masked_output = outputs.last_hidden_state * encoded_sentences['attention_mask'].unsqueeze(-1)
                 mean_output = masked_output.sum(dim=1) / encoded_sentences['attention_mask'].sum(dim=-1, keepdim=True)
                 mean_output = mean_output.detach().cpu()
+                ###################### 平均池化 ######################
                 field_embeddings.append(mean_output)
     
+            ###################### 一个Item有多个文本字段（如标题和类目），取平均值作为该商品最终的文本表征 ######################
             field_mean_embedding = torch.stack(field_embeddings, dim=0).mean(dim=0)
             embeddings.append(field_mean_embedding)
             start += batch_size
@@ -101,6 +110,7 @@ def generate_item_embedding(args, item_text_list, tokenizer, model, word_drop_ra
     embeddings = torch.cat(embeddings, dim=0).numpy()
     print('Embeddings shape: ', embeddings.shape)
 
+    ##################### 保存为 npy 文件 #####################
     file = os.path.join(args.root, args.dataset + '.emb-' + args.plm_name + "-td" + ".npy")
     np.save(file, embeddings)
 
@@ -108,11 +118,11 @@ def generate_item_embedding(args, item_text_list, tokenizer, model, word_drop_ra
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default='Instruments', help='Instruments / Arts / Games')
-    parser.add_argument('--root', type=str, default="/userhome/dataset/MQL4GRec")
+    parser.add_argument('--root', type=str, default="/home/liangxinyu/MACRec/data")
     parser.add_argument('--gpu_id', type=int, default=0, help='ID of running GPU')
     parser.add_argument('--plm_name', type=str, default='llama')
     parser.add_argument('--model_name_or_path', type=str, default='huggyllama/llama-7b')
-    parser.add_argument('--model_cache_dir', type=str, default='/userhome/cache_models')
+    parser.add_argument('--model_cache_dir', type=str, default='/home/liangxinyu/MACRec/cache_models')
     parser.add_argument('--max_sent_len', type=int, default=2048)
     parser.add_argument('--word_drop_ratio', type=float, default=-1, help='word drop ratio, do not drop by default')
     return parser.parse_args()

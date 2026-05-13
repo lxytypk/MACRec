@@ -1,5 +1,9 @@
 import math
 
+'''
+简单匹配评估 Hit@1
+将prediction和label做字符串对比 -> 统计是否完全命中Hit@1
+'''
 def get_eval_metrics_results(predictions, labels):
     
     # predictions = [_.strip().replace(" ","") for _ in predictions]
@@ -31,6 +35,11 @@ def get_eval_metrics_results(predictions, labels):
 
     return metric
 
+'''
+Top-K序列评估【看排序位置】
+对每个样本 K个候选预测结果按 score排序
+-> 判断真是target是否在排序结果中
+'''
 def get_topk_results(predictions, scores, targets, k, all_items=None):
     results = []
     B = len(targets)
@@ -76,7 +85,9 @@ def get_metrics_results(topk_results, metrics):
 
     return res
 
-
+'''
+正确答案出现在越靠前越好【命中在第几位】
+'''
 def ndcg_k(topk_results, k):
     """
     Since we apply leave-one-out, each user only have one ground truth item, so the idcg would be 1.0
@@ -90,7 +101,9 @@ def ndcg_k(topk_results, k):
         ndcg += one_ndcg
     return ndcg
 
-
+'''
+正确答案有没有出现在Top-K中
+'''
 def hit_k(topk_results, k):
     hit = 0.0
     for row in topk_results:

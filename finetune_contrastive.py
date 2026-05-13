@@ -13,6 +13,11 @@ from utils import *
 from collator import Collator
 from modeling import create_contrastive_model, baseT5
 
+'''
+用T5将(1)User行为序列(2)Image信息(3)Item信息(4)多模态SID
+生成文本生成【semantic token生成】
+'''
+
 def train(args):
 
     set_seed(args.seed)

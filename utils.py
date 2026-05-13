@@ -13,12 +13,12 @@ def parse_global_args(parser):
 
 
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--base_model", type=str, default="./config/ckpt",help="basic model path")
+    parser.add_argument("--base_model", type=str, default="/home/liangxinyu/MACRec/config/ckpt",help="basic model path")
     
     parser.add_argument("--load_model_name", type=str, default=None,help="load pretrained model")
 
     parser.add_argument("--output_dir", type=str,
-                        default="./log",
+                        default="/home/liangxinyu/MACRec/log",
                         help="The output directory")
     return parser
 
@@ -95,7 +95,7 @@ def parse_train_args(parser):
     parser.add_argument("--fp16",  action="store_true", default=False)
     parser.add_argument("--bf16", action="store_true", default=False)
     parser.add_argument("--gradient_checkpointing", action="store_true", default=False)
-    parser.add_argument("--deepspeed", type=str, default="./config/ds_z3_bf16.json")
+    parser.add_argument("--deepspeed", type=str, default="/home/liangxinyu/MACRec/config/ds_z3_bf16.json")
     parser.add_argument("--patient", type=int, default=10)
     parser.add_argument("--eval_num_beams", type=int, default=5)
     
@@ -156,7 +156,11 @@ def ensure_dir(dir_path):
 
     os.makedirs(dir_path, exist_ok=True)
 
-
+'''
+seqrec / seqimage: 序列推荐任务（文本/图像序列推荐）
+item2image / image2item: item ↔ image 跨模态检索任务
+fusion / mix: 模态融合推荐[text + image + item混合]
+'''
 def load_datasets(args):
 
     tasks = args.tasks.split(",")
@@ -247,6 +251,7 @@ def load_test_dataset(args):
 
     return test_data
 
+'''限制模型下一步只能生成合法 token'''
 def prefix_allowed_tokens_fn(candidate_trie):
     def prefix_allowed_tokens(batch_id, sentence):
         sentence = sentence.tolist()

@@ -35,6 +35,7 @@ class Trainer(object):
         self.optimizer = self._build_optimizer()
         self.model = self.model.to(self.device)
 
+    ################### 优化器 ###################
     def _build_optimizer(self):
 
         params = self.model.parameters()
@@ -72,12 +73,15 @@ class Trainer(object):
         if torch.isnan(loss):
             raise ValueError("Training loss is nan")
 
+    ################### 训练 ###################
     def _train_epoch(self, train_data, epoch_idx):
 
         self.model.train()
 
         total_loss = 0
+        ### 【1】重构损失
         total_recon_loss = 0
+        ### 【2】量化损失
         total_rq_loss = 0
         iter_data = tqdm(
                     train_data,
@@ -100,6 +104,7 @@ class Trainer(object):
 
         return total_loss, total_recon_loss, total_rq_loss
 
+    ################### 验证碰撞率检测【ID具有唯一性】 ###################
     @torch.no_grad()
     def _valid_epoch(self, valid_data):
 
@@ -135,6 +140,7 @@ class Trainer(object):
 
         return max_value, min_value, collision_rate
 
+    ################### 自动保存与早停 ###################
     def _save_checkpoint(self, epoch, collision_rate=1, ckpt_file=None):
 
         ckpt_path = os.path.join(self.ckpt_dir,ckpt_file) if ckpt_file \
@@ -220,7 +226,9 @@ class Trainer(object):
         return self.best_loss, self.best_collision_rate
 
 
-
+'''
+处理跨模态 Training
+'''
 class CrossTrainer(object):
 
     def __init__(self, args, model):

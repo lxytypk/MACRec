@@ -5,6 +5,10 @@ from collections import defaultdict
 
 from evaluate import get_topk_results, get_metrics_results
 
+'''
+将用户Top-K的预测结果
+整理成 (user, target, ranked_items, scores) 结构, 按User排序
+'''
 def get_sort_results(predictions, scores, targets_ids, users, k, index2id):
     
     B = len(users)
@@ -34,6 +38,10 @@ def get_sort_results(predictions, scores, targets_ids, users, k, index2id):
     
     return sorted_infos
 
+'''
+text 和 image 的 Top-K 推荐结果按 score 融合，
+得到一个统一 item 排序列表
+'''
 def get_topk_results_ensemble(text_info, image_info):
     
     assert len(text_info) == len(image_info)
@@ -61,6 +69,7 @@ def get_topk_results_ensemble(text_info, image_info):
             if item_id == -1:
                 score = -1000
             
+            ################# 重复出现的Item【text + image平均融合；+1强化多模态一致性】 #################
             if item_id in item_id2score and item_id != -1:
 
                 item_id2score[item_id] = (score + item_id2score[item_id]) / 2 + 1
@@ -85,11 +94,12 @@ def get_topk_results_ensemble(text_info, image_info):
         for item_id, score in item_id2score.items():
             pairs.append((item_id, score))
         
-
+        ################# score从高到低排序 #################
         sorted_pairs = sorted(pairs, key=lambda x: x[1], reverse=True)
 
         one_results = []
         for sorted_pred in sorted_pairs:
+            ################# 预测排序中哪些命中了真实 item #################
             if sorted_pred[0] in target_item:
                 one_results.append(1)
             else:
@@ -199,10 +209,10 @@ def main(args):
 def parse_args():
     parser = argparse.ArgumentParser(description="Index")
 
-    parser.add_argument("--data_path", type=str, default="/userhome/dataset/LC-Rec_images", help="Input data path.")
+    parser.add_argument("--data_path", type=str, default="/home/liangxinyu/MACRec/data", help="Input data path.")
     parser.add_argument("--dataset", type=str, default="Instruments", help="Input data path.")
     
-    parser.add_argument("--output_dir", type=str, default="/userhome/projects/TIGER_image/log/encoder-decoder/Instruments/ckpt_b256_lr0.0005_wd0.01_dm0_e200_index_lemb_256_dis_seqrec,seqimage,item2image,image2item,fusionseqrec", help="Input data path.")
+    parser.add_argument("--output_dir", type=str, default="/home/liangxinyu/MACRec/log/encoder-decoder/Instruments/ckpt_b256_lr0.0005_wd0.01_dm0_e200_index_lemb_256_dis_seqrec,seqimage,item2image,image2item,fusionseqrec", help="Input data path.")
     
     parser.add_argument("--index_file", type=str, default=".index_lemb_256_dis.json", help="Input data path.")
     parser.add_argument("--image_index_file", type=str, default=".index_vitemb_256_dis.json", help="Input data path.")

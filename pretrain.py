@@ -13,6 +13,14 @@ from transformers.trainer_callback import EarlyStoppingCallback
 from utils import *
 from collator import Collator
 
+'''
+不同prompt对应不同输出
+输入:
+用户历史 + prompt + semantic ids
+
+输出:
+下一个 item 的 semantic ids
+'''
 
 def train(args):
 

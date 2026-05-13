@@ -13,14 +13,14 @@ Valid_task=seqrec
 
 Datasets=$3
 
-load_model_name=./config/ckpt
+load_model_name=/home/liangxinyu/MACRec/config/ckpt
 
-OUTPUT_DIR=./log/$Datasets-$save_name-contrastive-align-0.01-temp-0.07-full-second
+OUTPUT_DIR=/home/liangxinyu/MACRec/log/$Datasets-$save_name-contrastive-align-0.01-temp-0.07-full-second
 mkdir -p $OUTPUT_DIR
 log_file=$OUTPUT_DIR/train.log
 Per_device_batch_size=1024
 torchrun --nproc_per_node=2 --master_port=$port finetune_contrastive.py \
-    --data_path ./data/ \
+    --data_path /home/liangxinyu/MACRec/data/ \
     --dataset $Datasets \
     --output_dir $OUTPUT_DIR \
     --base_model $load_model_name \
@@ -44,7 +44,7 @@ save_file=$OUTPUT_DIR/save_${Valid_task}_20.json
 
 torchrun --nproc_per_node=2 --master_port=$port test_ddp_save.py \
     --ckpt_path $OUTPUT_DIR \
-    --data_path ./data/ \
+    --data_path /home/liangxinyu/MACRec/data/ \
     --dataset $Datasets \
     --test_batch_size 64 \
     --num_beams 20 \
@@ -61,7 +61,7 @@ save_file=$OUTPUT_DIR/save_${Valid_task}_20.json
 
 torchrun --nproc_per_node=2 --master_port=$port test_ddp_save.py \
     --ckpt_path $OUTPUT_DIR \
-    --data_path ./data/ \
+    --data_path /home/liangxinyu/MACRec/data/ \
     --dataset $Datasets \
     --test_batch_size 64 \
     --num_beams 20 \
@@ -75,7 +75,7 @@ torchrun --nproc_per_node=2 --master_port=$port test_ddp_save.py \
 python ensemble.py \
     --output_dir $OUTPUT_DIR\
     --dataset $Datasets\
-    --data_path ./data/\
+    --data_path /home/liangxinyu/MACRec/data/\
     --index_file $Index_file\
     --image_index_file $Image_index_file\
     --num_beams 20

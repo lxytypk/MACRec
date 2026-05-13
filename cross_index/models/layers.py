@@ -79,7 +79,9 @@ def kmeans(
 
     return tensor_centers
 
-
+'''
+均匀分配
+'''
 @torch.no_grad()
 def sinkhorn_algorithm(distances, epsilon, sinkhorn_iterations):
     Q = torch.exp(- distances / epsilon)

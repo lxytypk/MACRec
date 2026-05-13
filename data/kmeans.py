@@ -11,7 +11,7 @@ for emb_path in [f"{dataset}/{dataset}.emb-llama-td.npy", f"{dataset}/{dataset}.
     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
     labels = kmeans.fit_predict(embeddings)
 
-
+    ######################### 把聚类结果转换成一个字典 item2cluster #########################
     item2cluster = {}
     for idx, label in enumerate(labels):
         item2cluster[f"{idx}"] = [f"<a_{label}>"]

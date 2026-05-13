@@ -3,7 +3,9 @@ from typing import Dict, List
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 import torch
 
-
+'''
+在Decoding时, 根据当前 prefix, 动态限制下一步 token
+'''
 class Trie(object):
     def __init__(self, sequences: List[List[int]] = []):
         self.trie_dict = {}
@@ -98,6 +100,7 @@ def prefix_allowed_tokens_fn(candidate_trie):
 
 
 if __name__ == "__main__":
+    '''根据T5生成模型,根据输入文本,生成一个Item id'''
     tokenizer = T5Tokenizer.from_pretrained("t5-small")
     model = T5ForConditionalGeneration.from_pretrained("t5-small")
     candidates = [

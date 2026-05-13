@@ -20,7 +20,7 @@ class CrossRQVAE(nn.Module):
                  quant_loss_weight=1.0,
                  kmeans_init=False,
                  kmeans_iters=100,
-                 sk_epsilons=[0.0,0.0,0.0,0.003],
+                 sk_epsilons=[0.0,0.0,0.0,0.003], ###### 前三层量化普通量化，只有最后一层开启了 Sinkhorn 算法
                  sk_iters=100,
                  use_linear=0,
                  begin_cross_layer=4,
@@ -95,6 +95,10 @@ class CrossRQVAE(nn.Module):
         self.image_decoder = MLPLayers(layers=self.image_decode_layer_dims,
                                        dropout=self.dropout_prob,bn=self.bn)
 
+    '''
+    带类别的 监督学习 跨模态对比学习量化
+    同class 的Item 的 Embedding 更接近
+    '''
     def class_con_cross_rq(
         self, text_vq, image_vq, residual_text_x, residual_image_x, text_x, image_x, use_sk=True, item_index=None, temperature=0.1
     ):
@@ -103,6 +107,7 @@ class CrossRQVAE(nn.Module):
         if item_index is not None:
             batch_size = residual_text_x.size(0)
 
+            ################## 特征归一化 ##################
             text_feat = F.normalize(residual_text_x, p=2, dim=1)
             image_feat = F.normalize(residual_image_x, p=2, dim=1)
 
@@ -111,8 +116,11 @@ class CrossRQVAE(nn.Module):
             pos_idx_text = []
             for i in range(batch_size):
                 anchor_global_idx = int(item_index[i])
+                ##################### 找与当前 text 同类别的 image item #####################
                 pos_global_indices = set(self.image_class_info.get(anchor_global_idx, []))
+                ##################### 只保留 batch 内的 positive #####################
                 batch_pos = [batch_global2batch_idx[gidx] for gidx in pos_global_indices if gidx in batch_global2batch_idx and batch_global2batch_idx[gidx] != i]
+                ##################### 随机选一个 positive / 如果没有，自己和自己配对
                 if batch_pos:
                     pos = random.choice(batch_pos)
                 else:
@@ -122,6 +130,7 @@ class CrossRQVAE(nn.Module):
 
             sim_matrix_text = torch.matmul(text_feat, text_feat.T) / temperature  # [B, B]
             pos_sim_text = sim_matrix_text[torch.arange(batch_size), pos_idx_text]
+            ##################### InfoNCE Loss #####################
             loss_text = -torch.log(
                 torch.exp(pos_sim_text) / torch.exp(sim_matrix_text).sum(dim=1)
             ).mean()
@@ -144,12 +153,14 @@ class CrossRQVAE(nn.Module):
                 torch.exp(pos_sim_image) / torch.exp(sim_matrix_image).sum(dim=1)
             ).mean()
 
+            ##################### 最终Loss=InfoNCE Loss+VQ Loss #####################
             text_loss = text_loss + self.text_contrast_weight * loss_text
             image_loss = image_loss + self.image_contrast_weight * loss_image
 
         return text_x_res, text_loss, text_indices, text_distances, image_x_res, image_loss, image_indices, image_distances
 
     def forward(self, text_x, image_x, item_index=None, use_sk=True):
+        ##################### 模态对齐【text/image映射到更接近的空间】 #####################
         text_align_in = self.text_align_encoder(text_x)
         image_align_in = self.image_align_encoder(image_x)
         text_x = self.text_encoder(text_align_in)
@@ -169,7 +180,9 @@ class CrossRQVAE(nn.Module):
             for i in range(self.num_rq_layers):
                 text_vq = self.text_rq.vq_layers[i]
                 image_vq = self.image_rq.vq_layers[i]
+                ################### 前几层用普通rq，后面几层开始text/image相互约束 ###################
                 if i >= self.begin_cross_layer:
+                    ################### 语义对齐 ###################
                     text_x_res, text_loss, text_indices, text_distances, image_x_res, image_loss, image_indices, image_distances = self.class_con_cross_rq(text_vq, image_vq, residual_text_x, residual_image_x, text_x, image_x, use_sk=use_sk, item_index=item_index)
                     residual_text_x = residual_text_x - text_x_res
                     residual_image_x = residual_image_x - image_x_res
@@ -209,6 +222,11 @@ class CrossRQVAE(nn.Module):
         return text_out, image_out, text_rq_loss, image_rq_loss, text_indices, image_indices, text_distances, image_distances, share_out
 
 
+    '''
+    跨模态对齐损失
+    重建后的text/image Embedding对齐
+    【reconstruction不一定保证text、image重建语义一致 -> 增加重建后跨模态对齐】
+    '''
     def text_image_recon_align(self, text_out, image_out, temperature=0.1):
 
         text_out_norm = F.normalize(text_out, p=2, dim=1)
@@ -216,9 +234,15 @@ class CrossRQVAE(nn.Module):
         sim_matrix = torch.matmul(text_out_norm, image_out_norm.T) / temperature  # [batch, batch]
         batch_size = text_out.size(0)
         labels = torch.arange(batch_size, device=text_out.device)
+        ############### （1）给定text->找image；（2）给定image->text 双向对齐###############
         loss = F.cross_entropy(sim_matrix, labels) + F.cross_entropy(sim_matrix.T, labels)
         return loss
-    
+    '''
+    重建损失+量化损失+重建后多模态对齐损失
+    1) 保证semantic token能恢复原Embedding
+    2) 保证latent Embedding能稳定离散化
+    3) text/image在共享空间对齐
+    '''
     def compute_loss(self, text_out, image_out, text_rq_loss, image_rq_loss, text_indices, image_indices, text_distances, image_distances, text_xs, image_xs, share_out):
         if self.loss_type == 'mse':
             loss_recon = F.mse_loss(text_out, text_xs, reduction='mean') + F.mse_loss(image_out, image_xs, reduction='mean')
@@ -230,6 +254,9 @@ class CrossRQVAE(nn.Module):
         loss_total = loss_recon + self.quant_loss_weight * (text_rq_loss + image_rq_loss) + self.recon_contrast_weight * align_loss
         return loss_total, loss_recon
     
+    '''
+    生成semantic token【semantic ID】
+    '''
     @torch.no_grad()
     def get_indices(self, text_xs, image_xs, use_sk=False):
         text_align_in = self.text_align_encoder(text_xs)
@@ -271,7 +298,12 @@ class CrossRQVAE(nn.Module):
     
     
 
-
+'''
+单模态RQVAE:
+(1) Encoder: 将embedding压缩到latent space
+(2) 多层 残差 将连续latent离散为 semantic token sequence
+(3) Deocder: 重建原Embedding
+'''
 class RQVAE(nn.Module):
     def __init__(self,
                  in_dim=768,

@@ -16,6 +16,10 @@ from models.rqvae import CrossRQVAE
 
 import os
 
+'''
+保证每个item有唯一token
+'''
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Index")
     parser.add_argument('--text_data_path', type=str, default=None)
@@ -28,17 +32,20 @@ def parse_args():
     parser.add_argument('--device', type=str, default="cuda:0")
     return parser.parse_args()
 
+'''检查一个序列中是否存在重复元素'''
 def check_collision(all_indices_str):
     tot_item = len(all_indices_str)
     tot_indice = len(set(all_indices_str))
     return tot_item==tot_indice
 
+'''序列中每个元素出现的次数'''
 def get_indices_count(all_indices_str):
     indices_count = collections.defaultdict(int)
     for index in all_indices_str:
         indices_count[index] += 1
     return indices_count
 
+'''找出重复元素在原序列中出现的具体位置'''
 def get_collision_item(all_indices_str):
     index2id = {}
     for i, index in enumerate(all_indices_str):
@@ -205,10 +212,13 @@ while True:
             # print(ori_code)
             
             num = i
+            ###################### 多个数据竞争同一个编码，保留量化误差最小的那个，并强制修改其他数据的编码 ######################
             while str(ori_code) in all_indices_str_set and num < max_num:
 
+                ############### 距离当前特征次近的 Codebook 索引 ###############
                 ori_code[level] = sort_distances_index[level][item][num]
                 num += 1
+            ##################### 修改最后一层仍然冲突，则尝试修改上一层（level-1） #####################
             for i in range(1, max_num):
                 if str(ori_code) in all_indices_str_set:
                     ori_code = copy.deepcopy(all_indices[item])

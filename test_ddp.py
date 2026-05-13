@@ -19,6 +19,9 @@ from collator import TestCollator
 from evaluate import get_topk_results, get_metrics_results
 from generation_trie import Trie
 
+'''
+在多 GPU 上并行做生成式推荐测试，并正确汇总所有 GPU 的预测结果，计算最终指标
+'''
 
 def test_ddp(args):
 

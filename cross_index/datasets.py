@@ -70,7 +70,9 @@ class EmbDatasetOne(data.Dataset):
     def __len__(self):
         return len(self.embedding)
 
-
+'''
+加载多模态数据集
+'''
 class DualEmbDataset(data.Dataset):
     
     def __init__(self, text_data_path, img_data_path):

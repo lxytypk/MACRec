@@ -3,7 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .layers import kmeans, sinkhorn_algorithm
 
-
+'''
+VQ层
+将连续Latent -> 离散Codebook
+'''
 class VectorQuantizer(nn.Module):
 
     def __init__(self, n_e, e_dim,
@@ -78,16 +81,20 @@ class VectorQuantizer(nn.Module):
             embeddings_weight = self.embedding.weight
 
         # Calculate the L2 Norm between latent and Embedded weights
+        ##################### 哪个 Codebook 向量最像当前的输入特征 #####################
         d = torch.sum(latent**2, dim=1, keepdim=True) + \
             torch.sum(embeddings_weight**2, dim=1, keepdim=True).t()- \
             2 * torch.matmul(latent, embeddings_weight.t())
+        ##################### 选距离最近的Codebook #####################
         if not use_sk or self.sk_epsilon <= 0:
             indices = torch.argmin(d, dim=-1)
             # print("=======",self.sk_epsilon)
         else:
             # print("++++++++",self.sk_epsilon)
+            ############### 归一化距离 ###############
             d = self.center_distance_for_constraint(d)
             d = d.double()
+            ############### 计算概率矩阵 Q ###############
             Q = sinkhorn_algorithm(d,self.sk_epsilon,self.sk_iters)
             # print(Q.sum(0)[:10])
             if torch.isnan(Q).any() or torch.isinf(Q).any():
